@@ -5,19 +5,23 @@ from pypbc import *
 import datetime
 
 qbits, rbits = 512, 160
-q = 1454560154151321541521
-# g, w, h, n3, pks, n, t, c, R, pk, r, u
-g = 1454560
-w = 145
-h = 14545602
-n3 = 5
-pks = [122331, 12123331, 1267331, 122641, 1222342331, 122342331, 122331, 12123331, 1267331, 122641, 1222342331,
-       122342331]
-n = 10
-t = 5
-c = 541651
-R, pk, r, u = 122331, 12123331, 1267331, 122641
-parameter = (qbits, rbits, q, g, w, h, n3, pks, n, t, c, R, pk, r, u)
+
+p = 34970314419892642909507782969116958274309
+g = 27464808337291794528868661597410061338052
+q = 264926624393126082647786234614522411169
+
+# pks = [5, 7789972324886433515830007310276509670070, 7008248216836606886526275535398584739933, 6625909801515796644859510823176628270480, 25295426451616168724967087516502713453749, 28029996752525009787242401169085825651492, 32626841904803863930033169205408718282290, 12291001626413898143176230851023168287300, 16477444000027208342145659911789049054275, 21722505318790365359601148762482653862245, 24711538406560794768747712229010041854468]
+# n = 10
+# z = 626318934400913296144646844922990020789
+#
+# R = 2070167107287647317232512132599078425034102486583640210000726391743156272227237335501505553076210467179239456003195018867908681438944648475960751264580420323678737545030714473523530976118623170091822144
+# c = 218053754047908523890810358265511615791
+#
+# w = 145
+# h = 14545602
+# n3 = 5
+# t = 5
+# pk, r, u = 1, 1267331, 122641
 
 def Prove1_1(q, n3, pks):
     V = 1
@@ -119,8 +123,8 @@ def Verify1_2_2(sendValue):
     return left == right
 
 
-def is_valid_base(a, c):
-    return math.gcd(a, c) == 1
+# def is_valid_base(a, c):
+#     return math.gcd(a, c) == 1
 
 
 def Prove1_3(g, h, q):
@@ -128,13 +132,13 @@ def Prove1_3(g, h, q):
     Com = pow(h, r, q)
     w = random.randint(0, q)
     r1 = random.randint(0, q)
-    c1 = random.randint(0, q)
+    c1 = random.randint(0, q) * -1
     A = pow(h, w, q)
-    flag = is_valid_base(Com // g, q)
-    while not flag:
-        r = random.randint(1, q)
-        Com = pow(h, r, q)
-        flag = is_valid_base(Com // g, q)
+    # flag = is_valid_base(Com // g, q)
+    # while not flag:
+    #     r = random.randint(1, q)
+    #     Com = pow(h, r, q)
+    #     flag = is_valid_base(Com // g, q)
     B = pow(h, r1, q) * pow(Com // g, -1 * c1, q) % q
 
     hkp1 = hashlib.sha256((str(Com) + str(A) + str(B)).encode()).hexdigest()
@@ -148,48 +152,56 @@ def Verify1_3(sendValue):
     Com, A, B, c1, c2, r1, r2, g, h, q = sendValue
     hkp1 = hashlib.sha256((str(Com) + str(A) + str(B)).encode()).hexdigest()
     H = int(hkp1, 16) % q
-    flag1 = abs(H - c1) == c2
-    flag2 = pow(h, r1, q) == B * pow(Com // g, c1, q) % q
+    flag1 = abs(H - c1) % q == c2
+    flag2 = pow(h, r1, q) * pow(Com // g, -c1, q) % q == B
     flag3 = pow(h, r2, q) == A * pow(Com, c2, q) % q
     return flag1 and flag2 and flag3
 
 
-def Prove2_1(n, c, R, q, pks):
-    a_list = [0]
-    B = 1
-    g_z = 1
-    bits = [x for x in range(n + 1)]
+def Prove2_1(n, c, z, q, R, pks, S):
+    bits = [0 for x in range(n + 1)]
+    for i in S:
+        bits[i] = 1
+    A = 1
+    k_list = [random.randint(0, q) for i in range(n + 1)]
+    k_z = k_list[0]
     for i in range(1, n + 1):
-        a_i = random.randint(0, q)
-        a_list.append(a_i)
         pk = pks[i]
-        b_i = bits[i]
-        g_z = g_z * pow(pk, b_i, q) % q
-        pk_a = pow(pk, a_i, q)
-        B = B * pk_a % q
-    g_z = pow(g_z, c, q) * R
-    hkp1 = hashlib.sha256((str(pks[1:]) + str(c) + str(R) + str(g_z) + str(B)).encode()).hexdigest()
-    H = int(hkp1, 16) % q
-    a_list2 = [0]
+        k_bi = k_list[i]
+        A = A * pow(pk, -1 * c * k_bi, p) % p
+    A = A * pow(g, k_z, p) % p
+    r = random.randint(0, q)
+    B = pow(g, z + r, p)
+    z_2 = z + r
+    R_2 = R * pow(g, r, p) % p
+    hkp1 = hashlib.sha256((str(pks[1:]) + str(c) + str(A) + str(B) + str(z_2) + str(R_2)).encode()).hexdigest()
+    H = int(hkp1, 16) % p
+    b_list2 = [z_2 * H + k_z % p]
     for i in range(1, n + 1):
-        a_i = a_list[i]
         b_i = bits[i]
-        a_ = b_i * H + a_i % q
-        a_list2.append(a_)
-    return B, a_list2, pks, c, R, g_z, n, q
+        k_bi = k_list[i]
+        b = b_i * H + k_bi % p
+        b_list2.append(b)
+    return pks, c, A, B, z_2, R_2, b_list2
 
 
 def Verify2_1(sendValue):
-    B, a_list2, pks, c, R, g_z, n, q = sendValue
-    hkp1 = hashlib.sha256((str(pks[1:]) + str(c) + str(R) + str(g_z) + str(B)).encode()).hexdigest()
-    H = int(hkp1, 16) % q
-    left = pow(g_z // R, H, q) * pow(B, c, q) % q
-    right = 1
-    for i in range(1, n + 1):
-        a_ = a_list2[i]
+    pks, c, A, B, z_2, R_2,b_list2 = sendValue
+    hkp1 = hashlib.sha256((str(pks[1:]) + str(c) + str(A) + str(B) + str(z_2) + str(R_2)).encode()).hexdigest()
+    H = int(hkp1, 16) % p
+    left = A * pow(R_2, H, p) % p
+    mul = 1
+    n = len(pks) - 1
+    for i in range(1, n+1):
         pk = pks[i]
-        right = right * pow(pk, a_, q) % q
-    return left == pow(right, c, q)
+        b = b_list2[i]
+        mul = mul * pow(pk, b, p) % p
+    mul = pow(mul, c, p)
+    left = left * mul % p
+    z = b_list2[0]
+    right = pow(g, z, p) % p
+
+    return left == right
 
 
 def Prove2_2_1(g, w, q):
@@ -254,13 +266,13 @@ def Prove2_3(g, h, q):
     Com = pow(h, r, q)
     w = random.randint(0, q)
     r1 = random.randint(0, q)
-    c1 = random.randint(0, q)
+    c1 = random.randint(0, q) * -1
     A = pow(h, w, q)
-    flag = is_valid_base(Com // g, q)
-    while not flag:
-        r = random.randint(1, q)
-        Com = pow(h, r, q)
-        flag = is_valid_base(Com // g, q)
+    # flag = is_valid_base(Com // g, q)
+    # while not flag:
+    #     r = random.randint(1, q)
+    #     Com = pow(h, r, q)
+    #     flag = is_valid_base(Com // g, q)
     B = pow(h, r1, q) * pow(Com // g, -1 * c1, q) % q
 
     hkp1 = hashlib.sha256((str(Com) + str(A) + str(B)).encode()).hexdigest()
@@ -274,8 +286,8 @@ def Verify2_3(sendValue):
     Com, A, B, c1, c2, r1, r2, g, h, q = sendValue
     hkp1 = hashlib.sha256((str(Com) + str(A) + str(B)).encode()).hexdigest()
     H = int(hkp1, 16) % q
-    flag1 = abs(H - c1) == c2
-    flag2 = pow(h, r1, q) == B * pow(Com // g, c1, q) % q
+    flag1 = abs(H - c1) % q == c2
+    flag2 = pow(h, r1, q) * pow(Com // g, -c1, q) % q == B
     flag3 = pow(h, r2, q) == A * pow(Com, c2, q) % q
     return flag1 and flag2 and flag3
 
@@ -343,8 +355,11 @@ def Verify5(sendValue):
     return (ind ** H) * B == A ** a_
 
 
-def GenerateProofs():
-    qbits, rbits, q, g, w, h, n3, pks, n, t, c, R, pk, r, u = parameter
+def GenerateProofs(n3, pks, n, t,z, c, R, pk,S):
+    w = 1451225
+    h = 14545602
+    r = 1267331
+    u = 122641
     sendvalue1 = Prove1_1(q, n3, pks)
 
     sendvalue2 = Prove1_2_1(q, g, w)
@@ -353,7 +368,7 @@ def GenerateProofs():
 
     sendvalue4 = Prove1_3(g, h, q)
 
-    sendvalue5 = Prove2_1(n, c, R, q, pks)
+    sendvalue5 = Prove2_1(n, c, z, q, R, pks, S)
 
     sendvalue6 = Prove2_2_1(g, w, q)
 
@@ -386,64 +401,27 @@ def VerifyProofs(sendAll):
 
 
 if __name__ == '__main__':
-    starttime = datetime.datetime.now()
-    sendAll = GenerateProofs()
-    endtime = datetime.datetime.now()
-    # starttime = datetime.datetime.now()
-    # q = 1454560154151321541521
-    # n3 = 5
-    # pks = [122331, 12123331, 1267331, 122641, 1222342331, 122342331]
-    # for i in range(11):
-    #     pks.append(i)
-    # # bits = [0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0]
-    # sendValue = Prove1_1(q, n3, pks)
-    # rs = VerifyProve1_1(sendValue)
-    # print(rs)
-    # g = 1454560
-    # w = 145
-    # sendValue2 = Prove1_2_1(q, g, w)
-    # b = VerifyProve1_2_1(sendValue2)
-    # print(b)
-    # n = 10
-    # sendValue3 = Prove1_2_2(q, g, n3, g, w)
-    # c = Verify1_2_2(sendValue3)
-    # print(c)
-    # h = 154521
-    # g = 1454560
-    # sendValue4 = Prove1_3(g, h, q)
-    # d = Verify1_3(sendValue4)
-    # print(d)
-    #
-    # n = 10
-    # z = 1541212
-    # c = 12412
-    # R = 121045
-    # pks = [random.randint(0, q) for x in range(n + 1)]
-    # sendValue5 = Prove2_1(n, c, R, q, pks)
-    # rs = Verify2_1(sendValue5)
-    # print(rs)
-    # sendValue6 = Prove2_2_1(g, w, q)
-    # rs = Verify2_2_1(sendValue6)
-    # print(rs)
-    # q = 1454560154151321541521
-    # g = 1454560
-    # n = 10
-    # h = 154521
-    # w = 145
-    # sendValue7 = Prove2_2_2(q, g, n, h, w)
-    # rs = Verify2_2_2(sendValue7)
-    # print(rs)
-    # q = 1454560154151321541521
-    # u = 154521
-    # w = 145
-    # sendValue8 = Prove4(q, u, w)
-    # rs = Verify4(sendValue8)
-    # print(rs)
-    # sendValue9 = Prove5(2,5,512,160,q)
-    # rs = Verify5(sendValue9)
-    # print(rs)
-    # sendValue10 = Prove3(10, 3,  12521, 12541, q)
-    # rs = Verify3(sendValue10)
-    # print(rs)
-    # endtime = datetime.datetime.now()
-    # print("时间：%s ms" % ((endtime - starttime).microseconds / 1000))  # 毫秒
+    pks = [5, 7789972324886433515830007310276509670070, 7008248216836606886526275535398584739933,
+           6625909801515796644859510823176628270480, 25295426451616168724967087516502713453749,
+           28029996752525009787242401169085825651492, 32626841904803863930033169205408718282290,
+           12291001626413898143176230851023168287300, 16477444000027208342145659911789049054275,
+           21722505318790365359601148762482653862245, 24711538406560794768747712229010041854468]
+    n = 10
+    z = 626318934400913296144646844922990020789
+    R = 2070167107287647317232512132599078425034102486583640210000726391743156272227237335501505553076210467179239456003195018867908681438944648475960751264580420323678737545030714473523530976118623170091822144
+    c = 218053754047908523890810358265511615791
+
+    n3 = 5
+    t = 5
+    pk = 1
+    S = [2,4,6,8,10]
+    # sendvalue5 = Prove2_1(n, c, z, q, R, pks)
+    # f5 = Verify2_1(sendvalue5)
+    # print(f5)
+    sendAll = GenerateProofs(n3, pks, n, t, z, c, R, pk,S)
+    print(VerifyProofs(sendAll))
+
+    # sendvalue4 = Prove1_3(g, h, q)
+    # f4 = Verify1_3(sendvalue4)
+    # print(f4)
+
