@@ -66,7 +66,6 @@ if __name__ == '__main__':
     #
     # a, b = (2, 3)
     # print(a)
-    # C100 5竟然有75287520
     # C_list = combinations(range(1, 20 + 1), 5)
     # C_list2 = combinations(range(1, 7 + 1), 5)
     # all_S_list = [list(x) for x in list(C_list)[:100]]
